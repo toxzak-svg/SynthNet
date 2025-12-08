@@ -241,16 +241,7 @@ describe("AIAgentResumeSBT", function () {
     });
 
     it("Should decrease reputation on failed verification", async function () {
-      // First add a successful job to increase reputation
-      await aiAgentResumeSBT.connect(employer1).addJobRecord(
-        agent1.address,
-        0,
-        "Job 1",
-        ethers.id("proof1"),
-        ethers.parseEther("100"),
-        { value: VERIFICATION_FEE }
-      );
-      
+      // First verify the job from beforeEach as successful
       await aiAgentResumeSBT.connect(verifier).verifyJob(
         agent1.address,
         0,
@@ -258,7 +249,7 @@ describe("AIAgentResumeSBT", function () {
         true
       );
 
-      // Now verify the second job as failed
+      // Now add a second job and verify it as failed
       await aiAgentResumeSBT.connect(employer1).addJobRecord(
         agent1.address,
         0,
@@ -270,7 +261,7 @@ describe("AIAgentResumeSBT", function () {
 
       await aiAgentResumeSBT.connect(verifier).verifyJob(
         agent1.address,
-        2,
+        1, // Second job has jobId 1
         2, // Failed
         false
       );
