@@ -24,8 +24,18 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
     
     // ============ State Variables ============
     
+    /// @notice Agent data structure
+    struct AgentData {
+        string serviceUrl;       // URL endpoint where agent service is hosted
+        string category;         // Agent category (e.g., "trading", "analytics", "compliance")
+        address paymentAddress;  // Address for receiving payments
+    }
+    
     /// @notice Counter for generating unique agent IDs
     uint256 private _nextAgentId;
+    
+    /// @notice Mapping from agent ID to agent data
+    mapping(uint256 => AgentData) private _agentData;
     
     /// @notice Mapping from agent ID to metadata key-value pairs
     mapping(uint256 => mapping(string => bytes)) private _metadata;
@@ -128,6 +138,48 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
     function register() external override returns (uint256 agentId) {
         MetadataEntry[] memory empty = new MetadataEntry[](0);
         return _registerFor(msg.sender, "", empty);
+    }
+    
+    /**
+     * @notice Simplified agent registration with service URL
+     * @dev Mints NFT to msg.sender with basic agent information
+     * @param _serviceUrl The URL endpoint where the agent service is hosted
+     * @return agentId The unique identifier for the registered agent
+     */
+    function mintAgent(string memory _serviceUrl) external returns (uint256 agentId) {
+        return mintAgent(_serviceUrl, "", msg.sender);
+    }
+    
+    /**
+     * @notice Register agent with service URL, category, and payment address
+     * @param _serviceUrl The URL endpoint where the agent service is hosted
+     * @param _category The agent category (e.g., "trading", "analytics")
+     * @param _paymentAddress Address for receiving payments (use msg.sender if address(0))
+     * @return agentId The unique identifier for the registered agent
+     */
+    function mintAgent(
+        string memory _serviceUrl,
+        string memory _category,
+        address _paymentAddress
+    ) public returns (uint256 agentId) {
+        require(bytes(_serviceUrl).length > 0, "AgentIdentity: service URL required");
+        require(!_hasRegistered[msg.sender], "AgentIdentity: already registered");
+        
+        // Use msg.sender as payment address if not specified
+        address paymentAddr = _paymentAddress == address(0) ? msg.sender : _paymentAddress;
+        
+        // Register the agent
+        MetadataEntry[] memory empty = new MetadataEntry[](0);
+        agentId = _registerFor(msg.sender, "", empty);
+        
+        // Store agent data
+        _agentData[agentId] = AgentData({
+            serviceUrl: _serviceUrl,
+            category: _category,
+            paymentAddress: paymentAddr
+        });
+        
+        return agentId;
     }
     
     /**
@@ -247,6 +299,70 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
      */
     function getMetadataKeys(uint256 agentId) external view returns (string[] memory) {
         return _metadataKeys[agentId];
+    }
+    
+    /**
+     * @notice Get agent data for a specific agent
+     * @param agentId The agent ID
+     * @return data The agent data struct
+     */
+    function getAgentData(uint256 agentId) external view returns (AgentData memory) {
+        require(_ownerOf(agentId) != address(0), "AgentIdentity: agent does not exist");
+        return _agentData[agentId];
+    }
+    
+    /**
+     * @notice Get service URL for a specific agent
+     * @param agentId The agent ID
+     * @return serviceUrl The agent's service URL
+     */
+    function getServiceUrl(uint256 agentId) external view returns (string memory) {
+        require(_ownerOf(agentId) != address(0), "AgentIdentity: agent does not exist");
+        return _agentData[agentId].serviceUrl;
+    }
+    
+    /**
+     * @notice Get category for a specific agent
+     * @param agentId The agent ID
+     * @return category The agent's category
+     */
+    function getCategory(uint256 agentId) external view returns (string memory) {
+        require(_ownerOf(agentId) != address(0), "AgentIdentity: agent does not exist");
+        return _agentData[agentId].category;
+    }
+    
+    /**
+     * @notice Get payment address for a specific agent
+     * @param agentId The agent ID
+     * @return paymentAddress The agent's payment address
+     */
+    function getPaymentAddress(uint256 agentId) external view returns (address) {
+        require(_ownerOf(agentId) != address(0), "AgentIdentity: agent does not exist");
+        return _agentData[agentId].paymentAddress;
+    }
+    
+    /**
+     * @notice Update agent data (only agent owner)
+     * @param agentId The agent ID
+     * @param _serviceUrl New service URL
+     * @param _category New category
+     * @param _paymentAddress New payment address
+     */
+    function updateAgentData(
+        uint256 agentId,
+        string memory _serviceUrl,
+        string memory _category,
+        address _paymentAddress
+    ) external {
+        require(_ownerOf(agentId) == msg.sender, "AgentIdentity: not agent owner");
+        require(bytes(_serviceUrl).length > 0, "AgentIdentity: service URL required");
+        require(_paymentAddress != address(0), "AgentIdentity: invalid payment address");
+        
+        _agentData[agentId] = AgentData({
+            serviceUrl: _serviceUrl,
+            category: _category,
+            paymentAddress: _paymentAddress
+        });
     }
     
     /**

@@ -173,6 +173,17 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
     }
     
     /**
+     * @notice Ensure caller is an authorized verifier (L3 or owner)
+     */
+    modifier onlyVerifier() {
+        require(
+            msg.sender == verificationRegistryContract || msg.sender == owner(),
+            "SoulboundResume: caller is not an authorized verifier"
+        );
+        _;
+    }
+    
+    /**
      * @notice Ensure the agent has a resume token
      */
     modifier hasResume(uint256 agentId) {
@@ -290,7 +301,7 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
         uint256 value,
         bytes32 tag1,
         bytes32 tag2
-    ) external payable hasResume(agentId) nonReentrant returns (uint256 jobId) {
+    ) external payable onlyVerifier hasResume(agentId) nonReentrant returns (uint256 jobId) {
         require(msg.value >= verificationFee, "SoulboundResume: insufficient fee");
         require(bytes(proofUri).length > 0, "SoulboundResume: proof URI required");
         
@@ -644,6 +655,43 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
     }
     
     // ============ Soulbound Override ============
+    
+    /**
+     * @dev Override transferFrom to block all transfers (soulbound)
+     */
+    function transferFrom(
+        address /*from*/,
+        address /*to*/,
+        uint256 /*tokenId*/
+    ) public virtual override {
+        revert("SoulboundResume: token is non-transferable");
+    }
+    
+    /**
+     * @dev Override safeTransferFrom to block all transfers (soulbound)
+     */
+    function safeTransferFrom(
+        address /*from*/,
+        address /*to*/,
+        uint256 /*tokenId*/,
+        bytes memory /*data*/
+    ) public virtual override {
+        revert("SoulboundResume: token is non-transferable");
+    }
+    
+    /**
+     * @dev Override approve to block approvals (soulbound)
+     */
+    function approve(address /*to*/, uint256 /*tokenId*/) public virtual override {
+        revert("SoulboundResume: token approvals not allowed");
+    }
+    
+    /**
+     * @dev Override setApprovalForAll to block approvals (soulbound)
+     */
+    function setApprovalForAll(address /*operator*/, bool /*approved*/) public virtual override {
+        revert("SoulboundResume: token approvals not allowed");
+    }
     
     /**
      * @dev Override to prevent transfers - tokens are soulbound
