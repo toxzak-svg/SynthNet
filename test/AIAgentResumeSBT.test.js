@@ -426,8 +426,10 @@ describe("AIAgentResumeSBT", function () {
         { value: VERIFICATION_FEE }
       );
 
+      // Since this is a fresh contract (beforeEach redeploys), this is the first job (jobId 0)
       const job = await aiAgentResumeSBT.getJobRecord(agent1.address, 0);
       expect(job.jobType).to.equal(0);
+      expect(job.jobId).to.equal(0);
     });
 
     it("Should handle TreasuryManagement job type", async function () {
@@ -440,8 +442,10 @@ describe("AIAgentResumeSBT", function () {
         { value: VERIFICATION_FEE }
       );
 
+      // Fresh contract instance, this is the first job (jobId 0)
       const job = await aiAgentResumeSBT.getJobRecord(agent1.address, 0);
       expect(job.jobType).to.equal(1);
+      expect(job.jobId).to.equal(0);
     });
 
     it("Should handle ContentCompliance job type", async function () {
@@ -454,8 +458,10 @@ describe("AIAgentResumeSBT", function () {
         { value: VERIFICATION_FEE }
       );
 
+      // Fresh contract instance, this is the first job (jobId 0)
       const job = await aiAgentResumeSBT.getJobRecord(agent1.address, 0);
       expect(job.jobType).to.equal(2);
+      expect(job.jobId).to.equal(0);
     });
   });
 });
