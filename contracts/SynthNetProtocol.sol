@@ -144,11 +144,14 @@ contract SynthNetProtocol is Ownable, ReentrancyGuard {
         string calldata tokenUri,
         IIdentityRegistry.MetadataEntry[] calldata metadata
     ) external whenNotPaused nonReentrant returns (uint256 agentId, uint256 resumeId) {
-        // Register identity on L1 (mint to the caller)
-        agentId = agentIdentity.registerFor(msg.sender, tokenUri, metadata);
+        // Mint soulbound resume on L2 first
+        resumeId = soulboundResume.mintResume(0, msg.sender); // agentId will be set via backlink
         
-        // Mint soulbound resume on L2
-        resumeId = soulboundResume.mintResume(agentId, msg.sender);
+        // Register identity on L1 (mint to the caller) with L2 link
+        agentId = agentIdentity.registerFor(msg.sender, tokenUri, metadata, resumeId);
+        
+        // Update the L2 resume with the correct agentId
+        soulboundResume.setAgentId(resumeId, agentId);
         
         totalAgentsRegistered++;
         
@@ -163,12 +166,15 @@ contract SynthNetProtocol is Ownable, ReentrancyGuard {
      * @return resumeId The resume ID
      */
     function registerAgent() external whenNotPaused nonReentrant returns (uint256 agentId, uint256 resumeId) {
-        // Register identity on L1 with no metadata
-        IIdentityRegistry.MetadataEntry[] memory emptyMetadata = new IIdentityRegistry.MetadataEntry[](0);
-        agentId = agentIdentity.registerFor(msg.sender, "", emptyMetadata);
+        // Mint soulbound resume on L2 first
+        resumeId = soulboundResume.mintResume(0, msg.sender); // agentId will be set via backlink
         
-        // Mint soulbound resume on L2
-        resumeId = soulboundResume.mintResume(agentId, msg.sender);
+        // Register identity on L1 with no metadata and L2 link
+        IIdentityRegistry.MetadataEntry[] memory emptyMetadata = new IIdentityRegistry.MetadataEntry[](0);
+        agentId = agentIdentity.registerFor(msg.sender, "", emptyMetadata, resumeId);
+        
+        // Update the L2 resume with the correct agentId
+        soulboundResume.setAgentId(resumeId, agentId);
         
         totalAgentsRegistered++;
         

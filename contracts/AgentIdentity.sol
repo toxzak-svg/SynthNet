@@ -39,6 +39,9 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
     /// @notice Mapping to track if an address has a registered agent
     mapping(address => bool) private _hasRegistered;
     
+    /// @notice Mapping from L1 agent ID to L2 resume token ID
+    mapping(uint256 => uint256) private _agentToResumeToken;
+    
     /// @notice Reference to Layer 2 contract (set after deployment)
     address public soulboundResumeContract;
     
@@ -135,15 +138,19 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
      * @param recipient The address to receive the identity token
      * @param _tokenURI URI to off-chain data
      * @param metadata Initial metadata entries
+     * @param resumeTokenId The L2 resume token ID to link to this identity
      * @return agentId The new agent ID
      */
     function registerFor(
         address recipient,
         string calldata _tokenURI,
-        MetadataEntry[] calldata metadata
+        MetadataEntry[] calldata metadata,
+        uint256 resumeTokenId
     ) external returns (uint256 agentId) {
         require(msg.sender == owner(), "AgentIdentity: only owner can registerFor");
-        return _registerFor(recipient, _tokenURI, metadata);
+        agentId = _registerFor(recipient, _tokenURI, metadata);
+        _agentToResumeToken[agentId] = resumeTokenId;
+        return agentId;
     }
     
     /**
@@ -255,6 +262,16 @@ contract AgentIdentity is ERC721, ERC721URIStorage, Ownable, IIdentityRegistry {
      */
     function totalAgents() external view returns (uint256) {
         return _nextAgentId - 1;
+    }
+    
+    /**
+     * @notice Get the L2 resume token ID linked to this L1 agent ID
+     * @param agentId The L1 agent ID
+     * @return resumeTokenId The linked L2 resume token ID (0 if none)
+     */
+    function getResumeTokenId(uint256 agentId) external view returns (uint256) {
+        require(_ownerOf(agentId) != address(0), "AgentIdentity: agent does not exist");
+        return _agentToResumeToken[agentId];
     }
     
     // ============ Internal Functions ============

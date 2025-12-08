@@ -248,16 +248,21 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
             msg.sender == agentIdentityContract || msg.sender == this.owner(),
             "SoulboundResume: unauthorized minter"
         );
-        require(_agentToResume[agentId] == 0, "SoulboundResume: resume already exists");
+        // Only check for duplicates if agentId is not 0 (0 means temp assignment)
+        if (agentId != 0) {
+            require(_agentToResume[agentId] == 0, "SoulboundResume: resume already exists");
+        }
         require(owner != address(0), "SoulboundResume: invalid owner");
         
         resumeId = _nextTokenId++;
         
         _safeMint(owner, resumeId);
         
-        // Link agent to resume
-        _agentToResume[agentId] = resumeId;
-        _resumeToAgent[resumeId] = agentId;
+        // Link agent to resume (only if agentId is provided)
+        if (agentId != 0) {
+            _agentToResume[agentId] = resumeId;
+            _resumeToAgent[resumeId] = agentId;
+        }
         
         // Initialize reputation
         _reputationScores[resumeId] = BASE_REPUTATION;
@@ -267,6 +272,22 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
         emit ResumeMinted(resumeId, agentId, owner);
         
         return resumeId;
+    }
+    
+    /**
+     * @notice Update the agentId for an existing resume (protocol only)
+     * @dev Used when minting resume before identity is created
+     * @param resumeId The resume token ID
+     * @param agentId The agent ID to link
+     */
+    function setAgentId(uint256 resumeId, uint256 agentId) external {
+        require(msg.sender == owner(), "SoulboundResume: only owner can set agentId");
+        require(_ownerOf(resumeId) != address(0), "SoulboundResume: resume does not exist");
+        require(_resumeToAgent[resumeId] == 0, "SoulboundResume: agentId already set");
+        require(_agentToResume[agentId] == 0, "SoulboundResume: agentId already linked");
+        
+        _agentToResume[agentId] = resumeId;
+        _resumeToAgent[resumeId] = agentId;
     }
     
     /**
