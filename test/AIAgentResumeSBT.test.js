@@ -397,7 +397,7 @@ describe("AIAgentResumeSBT", function () {
       const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
       const tx = await aiAgentResumeSBT.withdrawFees();
       const receipt = await tx.wait();
-      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      const gasUsed = receipt.gasUsed * (receipt.effectiveGasPrice || receipt.gasPrice || 0n);
       const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
 
       expect(ownerBalanceAfter).to.equal(

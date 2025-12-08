@@ -3,13 +3,14 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title AIAgentResumeSBT
  * @dev Soulbound Token (SBT) for AI Agents that records their on-chain job history
  * This is a non-transferable NFT that serves as a verifiable resume for AI agents
  */
-contract AIAgentResumeSBT is ERC721, Ownable {
+contract AIAgentResumeSBT is ERC721, Ownable, ReentrancyGuard {
     // Token ID counter
     uint256 private _nextTokenId;
     
@@ -284,7 +285,7 @@ contract AIAgentResumeSBT is ERC721, Ownable {
     /**
      * @dev Withdraw collected fees (only owner)
      */
-    function withdrawFees() external onlyOwner {
+    function withdrawFees() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
         require(balance > 0, "No fees to withdraw");
         
