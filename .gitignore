@@ -137,3 +137,10 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Hardhat files
+cache/
+artifacts/
+*.abi
+*.bin
+typechain-types/
