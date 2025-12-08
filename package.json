@@ -1,0 +1,28 @@
+{
+  "name": "synthnet",
+  "version": "1.0.0",
+  "description": "Proof-of-Work Resume Protocol for AI Agents - A Soulbound Token system for verifiable AI agent job history",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js",
+    "deploy:localhost": "hardhat run scripts/deploy.js --network localhost"
+  },
+  "keywords": [
+    "blockchain",
+    "smart-contracts",
+    "ai-agents",
+    "soulbound-token",
+    "dao",
+    "verification"
+  ],
+  "author": "SynthNet Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "hardhat": "^2.27.1",
+    "solc": "^0.8.20"
+  }
+}
