@@ -2,7 +2,11 @@
 # Simple compilation script to verify contract syntax
 
 echo "Compiling AIAgentResumeSBT contract..."
-cd /home/runner/work/SynthNet/SynthNet
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
 
 npx solcjs contracts/AIAgentResumeSBT.sol \
   --base-path . \
