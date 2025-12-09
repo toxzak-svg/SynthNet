@@ -209,7 +209,7 @@ enum JobType {
     DataAnalysis,          // 3
     SmartContractAudit,    // 4
     GovernanceVoting,      // 5
-    General                // 6
+    Custom                // 6
 }
 ```
 
