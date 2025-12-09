@@ -1,4 +1,14 @@
-# Quick Start Guide
+# SynthNet v2.0 - Quick Start Guide
+
+## Overview
+
+SynthNet v2.0 implements a layered architecture with:
+- **Layer 1 (AgentIdentity)**: Transferable identity tokens  
+- **Layer 2 (SoulboundResume)**: Non-transferable job history
+- **Layer 3 (VerificationRegistry)**: Job validation system
+- **Orchestrator (SynthNetProtocol)**: Unified API
+
+**Key Feature**: L1↔L2 bidirectional lookups enable cross-layer queries.
 
 ## Installation
 
@@ -8,272 +18,237 @@ cd SynthNet
 npm install
 ```
 
-## Quick Compilation Check
+## Deploy Protocol
 
+### Fresh Deployment
 ```bash
-# Verify the contract compiles
-./scripts/compile-simple.sh
+npx hardhat run scripts/deploy-v2.js --network localhost
+# or for testnet
+npx hardhat run scripts/deploy-v2.js --network sepolia
 ```
 
-## Basic Usage Example
+### Migration from Legacy
+```bash
+npx hardhat run scripts/deploy-v2.js --network localhost -- --migrate <LEGACY_CONTRACT_ADDRESS>
+```
 
-### 1. Deploy the Contract
+## Basic Usage
+
+### 1. Register an Agent
 
 ```javascript
 const { ethers } = require("hardhat");
 
-async function deployContract() {
-    const verificationFee = ethers.parseEther("0.01"); // 0.01 ETH per job
-    
-    const AIAgentResumeSBT = await ethers.getContractFactory("AIAgentResumeSBT");
-    const contract = await AIAgentResumeSBT.deploy(verificationFee);
-    await contract.waitForDeployment();
-    
-    console.log("Contract deployed at:", await contract.getAddress());
-    return contract;
+// Get protocol instance
+const protocol = await ethers.getContractAt("SynthNetProtocol", PROTOCOL_ADDRESS);
+
+// Register with metadata
+const metadata = [
+  { key: "name", value: ethers.toUtf8Bytes("AI Agent Alpha") },
+  { key: "model", value: ethers.toUtf8Bytes("GPT-4") }
+];
+
+const tx = await protocol.registerAgent("ipfs://Qm...", metadata);
+const receipt = await tx.wait();
+
+// Extract IDs from event
+const event = receipt.logs.find(log => log.fragment?.name === "AgentFullyRegistered");
+const agentId = event.args.agentId;
+const resumeId = event.args.resumeId;
+
+console.log(`Agent ID (L1): ${agentId}`);
+console.log(`Resume ID (L2): ${resumeId}`);
+```
+
+### 2. Cross-Layer Lookup (L1↔L2)
+
+```javascript
+// Get contracts
+const agentIdentity = await ethers.getContractAt("AgentIdentity", IDENTITY_ADDRESS);
+const soulboundResume = await ethers.getContractAt("SoulboundResume", RESUME_ADDRESS);
+
+// L1 → L2 lookup
+const agentId = await agentIdentity.getAgentIdByAddress(agentAddress);
+const resumeId = await agentIdentity.getResumeTokenId(agentId);
+
+// L2 → L1 lookup
+const linkedAgentId = await soulboundResume.getAgentId(resumeId);
+
+// Query job history
+const jobs = await soulboundResume.getJobRecords(agentId);
+const reputation = await soulboundResume.getReputation(agentId);
+```
+
+### 3. Add Job Record
+
+```javascript
+const fee = await protocol.verificationFee();
+
+const tx = await protocol.addJobRecord(
+  agentId,
+  0, // JobType.TradeExecution
+  "Executed 10 DeFi swaps",
+  "ipfs://Qm...proof",
+  ethers.keccak256(ethers.toUtf8Bytes("proof data")),
+  ethers.parseEther("100"), // value
+  { value: fee }
+);
+```
+
+### 4. Verify Job
+
+```javascript
+// Must be owner or authorized verifier
+await protocol.addVerifier(verifierAddress);
+
+// Verify with success
+await protocol.verifyJob(agentId, jobId, true); // success=true, rep+10
+// or failure
+await protocol.verifyJob(agentId, jobId, false); // success=false, rep-5
+```
+
+### 5. Give Feedback
+
+```javascript
+// Direct call to L2 (preserves msg.sender)
+const soulboundResume = await ethers.getContractAt("SoulboundResume", RESUME_ADDRESS);
+
+await soulboundResume.giveFeedback(
+  agentId,
+  85, // score 0-100
+  ethers.id("quality"),
+  ethers.id("performance"),
+  "ipfs://Qm...feedback",
+  ethers.keccak256(ethers.toUtf8Bytes("feedback content")),
+  "0x" // optional auth signature
+);
+```
+
+### 6. Query Agent Data
+
+```javascript
+// Get statistics
+const stats = await protocol.getAgentStats(agentId);
+console.log(`Total Jobs: ${stats.totalJobs}`);
+console.log(`Successful: ${stats.successfulJobs}`);
+console.log(`Failed: ${stats.failedJobs}`);
+console.log(`Reputation: ${stats.reputation}`);
+
+// Get all jobs
+const jobs = await soulboundResume.getJobRecords(agentId);
+
+// Get feedback
+const clients = await soulboundResume.getClients(agentId);
+for (const client of clients) {
+  const feedback = await soulboundResume.readFeedback(agentId, client, 0);
+  console.log(`Score from ${client}: ${feedback.score}`);
 }
-```
-
-### 2. Register an AI Agent
-
-```javascript
-async function registerAgent(contract, agentAddress) {
-    const tx = await contract.registerAgent(agentAddress);
-    await tx.wait();
-    
-    const tokenId = await contract.getAgentTokenId(agentAddress);
-    console.log(`Agent registered with token ID: ${tokenId}`);
-    return tokenId;
-}
-```
-
-### 3. Add a Verified Job
-
-```javascript
-async function addAndVerifyJob(contract, agentAddress, verifierSigner) {
-    // Get verification fee
-    const fee = await contract.verificationFee();
-    
-    // Add job record
-    const jobTx = await contract.addJobRecord(
-        agentAddress,
-        0, // TradeExecution
-        "Executed $10K Uniswap swap successfully",
-        ethers.id("proof-hash"),
-        ethers.parseEther("10000"),
-        { value: fee }
-    );
-    await jobTx.wait();
-    
-    // Verify the job
-    const verifyTx = await contract.connect(verifierSigner).verifyJob(
-        agentAddress,
-        0, // jobId
-        1, // Verified
-        true // success
-    );
-    await verifyTx.wait();
-    
-    console.log("Job added and verified!");
-}
-```
-
-### 4. Query Agent Statistics
-
-```javascript
-async function getAgentProfile(contract, agentAddress) {
-    // Get statistics
-    const stats = await contract.getAgentStats(agentAddress);
-    
-    console.log("Agent Profile:");
-    console.log(`- Total Jobs: ${stats.totalJobs}`);
-    console.log(`- Successful Jobs: ${stats.successfulJobs}`);
-    console.log(`- Failed Jobs: ${stats.failedJobs}`);
-    console.log(`- Reputation: ${stats.reputation}`);
-    console.log(`- Success Rate: ${stats.successfulJobs / stats.totalJobs * 100}%`);
-    
-    // Get full job history
-    const jobs = await contract.getAgentJobs(agentAddress);
-    console.log("\nJob History:");
-    jobs.forEach((job, i) => {
-        console.log(`  Job ${i}: ${job.description}`);
-        console.log(`    Status: ${["Pending", "Verified", "Failed", "Disputed"][job.status]}`);
-        console.log(`    Success: ${job.success}`);
-    });
-}
-```
-
-## Running the Example
-
-```bash
-# Run the complete example script
-npx hardhat run scripts/example.js --network hardhat
-```
-
-## Common Operations
-
-### For DAOs (Evaluating Agents)
-
-```javascript
-// Check if agent meets minimum requirements
-async function meetsRequirements(contract, agentAddress) {
-    const stats = await contract.getAgentStats(agentAddress);
-    
-    // Example requirements
-    const minJobs = 5;
-    const minReputation = 30;
-    const minSuccessRate = 0.8; // 80%
-    
-    const successRate = stats.totalJobs > 0 
-        ? Number(stats.successfulJobs) / Number(stats.totalJobs)
-        : 0;
-    
-    return (
-        stats.totalJobs >= minJobs &&
-        stats.reputation >= minReputation &&
-        successRate >= minSuccessRate
-    );
-}
-```
-
-### For Employers (Recording Jobs)
-
-```javascript
-// Record a treasury management job
-async function recordTreasuryJob(contract, agentAddress, treasurySize, duration) {
-    const fee = await contract.verificationFee();
-    
-    const description = `Managed $${ethers.formatEther(treasurySize)} treasury for ${duration} days`;
-    const proofHash = ethers.id(JSON.stringify({
-        treasurySize: treasurySize.toString(),
-        duration,
-        timestamp: Date.now()
-    }));
-    
-    const tx = await contract.addJobRecord(
-        agentAddress,
-        1, // TreasuryManagement
-        description,
-        proofHash,
-        treasurySize,
-        { value: fee }
-    );
-    
-    await tx.wait();
-    console.log("Treasury management job recorded");
-}
-```
-
-### For Verifiers
-
-```javascript
-// Verify a job with detailed checks
-async function verifyJobWithChecks(contract, agentAddress, jobId, proofData) {
-    // Get job details
-    const job = await contract.getJobRecord(agentAddress, jobId);
-    
-    // Verify proof (implementation depends on job type)
-    const isValid = await validateProof(job.proofHash, proofData);
-    
-    if (isValid) {
-        await contract.verifyJob(
-            agentAddress,
-            jobId,
-            1, // Verified
-            true // success
-        );
-        console.log(`Job ${jobId} verified as successful`);
-    } else {
-        await contract.verifyJob(
-            agentAddress,
-            jobId,
-            2, // Failed
-            false // not successful
-        );
-        console.log(`Job ${jobId} marked as failed`);
-    }
-}
-```
-
-## Important Notes
-
-### Soulbound Token Behavior
-
-The tokens are **non-transferable**. Any attempt to transfer will fail:
-
-```javascript
-// This will FAIL
-try {
-    await contract.connect(agent).transferFrom(agent.address, other.address, tokenId);
-} catch (error) {
-    console.log("Transfer blocked: Token is soulbound");
-}
-```
-
-### Fee Management
-
-Always check the current fee before adding jobs:
-
-```javascript
-const currentFee = await contract.verificationFee();
-console.log(`Current fee: ${ethers.formatEther(currentFee)} ETH`);
-```
-
-### Verifier Authorization
-
-Only authorized verifiers can verify jobs:
-
-```javascript
-// Owner adds verifier
-await contract.addVerifier(verifierAddress);
-
-// Check if address is a verifier
-const isVerifier = await contract.verifiers(someAddress);
 ```
 
 ## Testing
 
-The project includes comprehensive tests. Run them with:
-
 ```bash
-# Note: Requires network access for compiler download
-# If network is restricted, use the compile-simple.sh script instead
+# All tests (72 tests)
 npx hardhat test
+
+# V2.0 only (44 tests)
+npx hardhat test test/SynthNetProtocol.test.js
+
+# Legacy only (28 tests)
+npx hardhat test test/AIAgentResumeSBT.test.js
 ```
 
-## Deployment to Networks
+## Contract Addresses (After Deployment)
 
-### Local Network
+The deployment script outputs:
+```
+=== Layer 1: AgentIdentity ===
+Address: 0x...
 
-```bash
-# Terminal 1: Start local node
-npx hardhat node
+=== Layer 2: SoulboundResume ===
+Address: 0x...
 
-# Terminal 2: Deploy
-npx hardhat run scripts/deploy.js --network localhost
+=== Layer 3: VerificationRegistry ===
+Address: 0x...
+
+=== Main Protocol ===
+Address: 0x...
 ```
 
-### Testnet (e.g., Sepolia)
+Save these addresses for interaction.
 
-1. Add network configuration to `hardhat.config.js`
-2. Set up your private key (use environment variables!)
-3. Deploy:
+## Key Concepts
 
-```bash
-npx hardhat run scripts/deploy.js --network sepolia
+### L1↔L2 Bidirectional Lookups
+```
+L1 Token 5 ⟷ L2 Token 12
+
+// Find resume from identity
+resumeId = agentIdentity.getResumeTokenId(5) → 12
+
+// Find identity from resume  
+agentId = soulboundResume.getAgentId(12) → 5
 ```
 
-## Support
+### Data Availability
+- **On-chain**: Status, reputation, timestamps, L1↔L2 links
+- **Off-chain (IPFS/Arweave)**: Proofs, detailed descriptions, metadata
 
-For issues or questions:
-- Check the [API Documentation](./API.md)
-- Review the [Technical Documentation](./TECHNICAL.md)
-- Open an issue on GitHub
+### Standards
+- **ERC-721**: Layer 1 identity (transferable)
+- **ERC-5192**: Layer 2 resume (soulbound)
+- **ERC-8004**: Identity/Reputation/Validation registries
+
+## Job Types
+
+```javascript
+enum JobType {
+    TradeExecution,        // 0
+    TreasuryManagement,    // 1
+    ContentCompliance,     // 2
+    DataAnalysis,          // 3
+    SmartContractAudit,    // 4
+    GovernanceVoting,      // 5
+    Custom                // 6
+}
+```
+
+## Admin Functions
+
+```javascript
+// Add verifier
+await protocol.addVerifier(verifierAddress);
+
+// Set fee
+await protocol.setVerificationFee(ethers.parseEther("0.02"));
+
+// Withdraw collected fees
+await protocol.withdrawFees();
+
+// Pause/unpause
+await protocol.pause();
+await protocol.unpause();
+```
+
+## Migration from Legacy
+
+```javascript
+const VampireMigration = await ethers.getContractFactory("VampireMigration");
+const migration = await VampireMigration.deploy(
+  LEGACY_CONTRACT_ADDRESS,
+  NEW_PROTOCOL_ADDRESS
+);
+
+// User self-migrates
+await migration.connect(agentOwner).selfMigrate();
+
+// Or admin batch migrates
+await migration.migrateAgentsBatch([agent1, agent2, agent3]);
+```
 
 ## Next Steps
 
-1. Review the smart contract: `contracts/AIAgentResumeSBT.sol`
-2. Study the test suite: `test/AIAgentResumeSBT.test.js`
-3. Run the example: `scripts/example.js`
-4. Read the technical documentation: `TECHNICAL.md`
-5. Explore the API reference: `API.md`
+- Read [ARCHITECTURE.md](ARCHITECTURE.md) for system design details
+- Read [API.md](API.md) for complete function reference
+- Read [TECHNICAL.md](TECHNICAL.md) for implementation details
+- Explore the test suite for usage examples
