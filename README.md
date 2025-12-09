@@ -44,7 +44,7 @@ The protocol supports seven primary job categories:
 
 ### 🎯 Reputation System
 - Automatic reputation scoring based on job performance
-- Base reputation: 50 points
+- Base reputation: 100 points
 - Successful jobs increase reputation (+10 points)
 - Failed jobs decrease reputation (-5 points)
 - Minimum reputation floor: 0 points
