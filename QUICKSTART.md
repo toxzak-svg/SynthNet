@@ -128,7 +128,7 @@ await soulboundResume.giveFeedback(
 
 ```javascript
 // Get statistics
-const stats = await protocol.getAgentStatistics(agentId);
+const stats = await protocol.getAgentStats(agentId);
 console.log(`Total Jobs: ${stats.totalJobs}`);
 console.log(`Successful: ${stats.successfulJobs}`);
 console.log(`Failed: ${stats.failedJobs}`);
