@@ -330,8 +330,8 @@ contract VerificationRegistry is Ownable, ReentrancyGuard, IValidationRegistry {
         // The 'success' parameter indicates whether the job was performed successfully
         SoulboundResume.JobStatus status = SoulboundResume.JobStatus.Verified;
         
-        // Update job status in L2
-        resume.updateJobStatus(agentId, jobId, status, success);
+        // Update job status in L2, storing the verification proof hash
+        resume.updateJobStatus(agentId, jobId, status, success, proofHash);
         
         emit JobVerified(agentId, jobId, msg.sender, success, proofHash);
     }
@@ -352,7 +352,8 @@ contract VerificationRegistry is Ownable, ReentrancyGuard, IValidationRegistry {
             agentId, 
             jobId, 
             SoulboundResume.JobStatus.Disputed, 
-            false
+            false,
+            bytes32(0) // No verification proof for disputes
         );
     }
     
