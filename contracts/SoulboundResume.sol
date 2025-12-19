@@ -70,6 +70,7 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
         bool success;            // Whether job was successful (set during verification)
         bytes32 tag1;            // Primary category tag for filtering
         bytes32 tag2;            // Secondary category tag
+        bytes32 verificationProofHash; // Hash of verification proof (set during verification)
     }
     
     // ============ State Variables ============
@@ -330,7 +331,8 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
             description: description,
             success: false,
             tag1: tag1,
-            tag2: tag2
+            tag2: tag2,
+            verificationProofHash: bytes32(0) // Set during verification
         });
         
         _resumeJobs[resumeId].push(newJob);
@@ -349,12 +351,14 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
      * @param jobId The job ID to update
      * @param status The new status
      * @param success Whether the job was successful
+     * @param verificationProofHash Hash of the verification proof
      */
     function updateJobStatus(
         uint256 agentId,
         uint256 jobId,
         JobStatus status,
-        bool success
+        bool success,
+        bytes32 verificationProofHash
     ) external onlyVerificationRegistry hasResume(agentId) {
         uint256 resumeId = _agentToResume[agentId];
         JobRecord[] storage jobs = _resumeJobs[resumeId];
@@ -369,6 +373,7 @@ contract SoulboundResume is ERC721, Ownable, ReentrancyGuard, IERC5192, IReputat
                 
                 jobs[i].status = status;
                 jobs[i].success = success;
+                jobs[i].verificationProofHash = verificationProofHash;
                 
                 // Update reputation
                 uint256 oldReputation = _reputationScores[resumeId];
